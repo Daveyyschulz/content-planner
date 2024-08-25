@@ -2,26 +2,14 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 import {
   compare,
 } from 'bcrypt'
-import type {
-  AuthOptions,
-  DefaultSession,
-} from 'next-auth'
 import {
   NuxtAuthHandler,
 } from '#auth'
 import prisma from '~/lib/prisma'
 
-declare module 'next-auth' {
-  interface Session {
-    user: {
-      id: string
-    } & DefaultSession['user']
-  }
-}
-
-const authOptions: AuthOptions = {
+export default NuxtAuthHandler({
   providers: [
-    // @ts-expect-error Use .default here for it to work during SSR.
+    // @ts-expect-error You need to use .default here for it to work during SSR. May be fixed via Vite at some point
     CredentialsProvider.default({
       name: 'Credentials',
       credentials: {
@@ -34,9 +22,9 @@ const authOptions: AuthOptions = {
           type: 'password',
         },
       },
-      async authorize(credentials: any) {
+      async authorize(credentials: Record<'email' | 'password', string> | undefined) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error('Missing email or password')
+          throw new Error('Invalid credentials')
         }
 
         const user = await prisma.user.findUnique({
@@ -46,18 +34,19 @@ const authOptions: AuthOptions = {
         })
 
         if (!user) {
-          throw new Error('User cannot be found')
+          throw new Error('No user found')
         }
 
-        const isValidPassword = await compare(credentials.password, user.password)
+        const isPasswordValid = await compare(credentials.password, user.password)
 
-        if (!isValidPassword) {
-          throw new Error('Password is incorrect')
+        if (!isPasswordValid) {
+          throw new Error('Invalid password')
         }
 
         return {
           id: user.id,
           email: user.email,
+          isVerified: user.isVerified,
         }
       },
     }),
@@ -69,6 +58,7 @@ const authOptions: AuthOptions = {
     }) {
       if (user) {
         token.id = user.id
+        token.isVerified = user.isVerified
       }
       return token
     },
@@ -78,13 +68,12 @@ const authOptions: AuthOptions = {
     }) {
       if (session.user) {
         session.user.id = token.id as string
+        session.user.isVerified = token.isVerified as boolean
       }
       return session
     },
   },
-  pages: {
-    signIn: '/login',
+  session: {
+    strategy: 'jwt',
   },
-}
-
-export default NuxtAuthHandler(authOptions)
+})

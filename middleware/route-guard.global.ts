@@ -1,7 +1,6 @@
 export default defineNuxtRouteMiddleware(async (to) => {
   const {
     status,
-    signOut,
   } = useAuth()
 
   await useAuth().getSession()
@@ -11,9 +10,12 @@ export default defineNuxtRouteMiddleware(async (to) => {
   }
 
   if (status.value === 'unauthenticated' && to.path !== '/') {
-    await signOut({
-      redirect: false,
-    })
+    try {
+      return navigateTo('/')
+    }
+    catch (error) {
+      console.error('Error during sign out:', error)
+    }
     return navigateTo('/')
   }
 })
