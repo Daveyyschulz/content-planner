@@ -6,7 +6,16 @@ export default defineNuxtConfig({
   },
   modules: [
     '@nuxtjs/supabase',
+    '@sidebase/nuxt-auth',
   ],
+  auth: {
+    provider: {
+      type: 'authjs',
+      trustHost: false,
+      defaultProvider: 'credentials',
+      addDefaultCallbackUrl: true,
+    },
+  },
   supabase: {
     redirect: false,
   },

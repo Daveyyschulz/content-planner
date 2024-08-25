@@ -1,7 +1,7 @@
 import {
-  createUser,
-  findUserByEmail,
-} from '~/server/utils/auth'
+  hash,
+} from 'bcrypt'
+import prisma from '~/lib/prisma'
 
 export default defineEventHandler(async (event) => {
   const {
@@ -16,7 +16,12 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const existingUser = await findUserByEmail(email)
+  const existingUser = await prisma.user.findUnique({
+    where: {
+      email,
+    },
+  })
+
   if (existingUser) {
     throw createError({
       statusCode: 400,
@@ -24,7 +29,15 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const user = await createUser(email, password)
+  const hashedPassword = await hash(password, 10)
+
+  const user = await prisma.user.create({
+    data: {
+      email,
+      password: hashedPassword,
+    },
+  })
+
   return {
     user: {
       id: user.id,
